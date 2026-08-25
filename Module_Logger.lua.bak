@@ -1,0 +1,103 @@
+local addonName, ns = ...
+
+-- 1. CREATE THE LOGGER FRAME
+local LogFrame = CreateFrame("Frame", "IncahootsLogFrame", UIParent, "BackdropTemplate")
+LogFrame:SetSize(130, 45)
+LogFrame:SetPoint("BOTTOM", UIParent, "BOTTOM", 150, 200)
+LogFrame:SetFrameStrata("LOW")
+LogFrame:EnableMouse(true)
+LogFrame:SetMovable(true)
+LogFrame:SetClampedToScreen(true)
+LogFrame:RegisterForDrag("LeftButton")
+LogFrame:SetScript("OnDragStart", LogFrame.StartMoving)
+LogFrame:SetScript("OnDragStop", LogFrame.StopMovingOrSizing)
+
+LogFrame:SetBackdrop({
+    bgFile = "Interface\\Buttons\\WHITE8X8",
+    edgeFile = "Interface\\Buttons\\WHITE8X8",
+    tile = false, tileSize = 0, edgeSize = 1,
+    insets = { left = 1, right = 1, top = 1, bottom = 1 }
+})
+LogFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.9)
+LogFrame:SetBackdropBorderColor(0, 0, 0, 1)
+
+-- 2. CREATE THE CLICKABLE BUTTONS
+-- Combat Log Button
+local CombatLogBtn = CreateFrame("Button", nil, LogFrame)
+CombatLogBtn:SetSize(120, 16)
+CombatLogBtn:SetPoint("TOP", LogFrame, "TOP", 0, -5)
+CombatLogBtn:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+
+local CombatText = CombatLogBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+CombatText:SetPoint("CENTER", CombatLogBtn, "CENTER", 0, 0)
+CombatLogBtn:SetFontString(CombatText)
+
+-- Chat Log Button
+local ChatLogBtn = CreateFrame("Button", nil, LogFrame)
+ChatLogBtn:SetSize(120, 16)
+ChatLogBtn:SetPoint("TOP", CombatLogBtn, "BOTTOM", 0, -2)
+ChatLogBtn:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+
+local ChatText = ChatLogBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+ChatText:SetPoint("CENTER", ChatLogBtn, "CENTER", 0, 0)
+ChatLogBtn:SetFontString(ChatText)
+
+-- 3. STATE UPDATE FUNCTION
+local function UpdateLogStatus()
+    -- Check the actual WoW API state
+    local isCombatLogging = LoggingCombat()
+    local isChatLogging = LoggingChat()
+
+    if isCombatLogging then
+        CombatLogBtn:SetText("|cffffb200Combat Log:|r |cff00ff00ON|r")
+    else
+        CombatLogBtn:SetText("|cffffb200Combat Log:|r |cffff0000OFF|r")
+    end
+
+    if isChatLogging then
+        ChatLogBtn:SetText("|cffffb200Chat Log:|r |cff00ff00ON|r")
+    else
+        ChatLogBtn:SetText("|cffffb200Chat Log:|r |cffff0000OFF|r")
+    end
+end
+
+-- 4. BUTTON CLICK SCRIPTS
+CombatLogBtn:SetScript("OnClick", function()
+    -- Toggle the state (1 for on, 0 for off)
+    local newState = LoggingCombat() and 0 or 1
+    LoggingCombat(newState)
+    UpdateLogStatus()
+end)
+
+ChatLogBtn:SetScript("OnClick", function()
+    -- Toggle the state (1 for on, 0 for off)
+    local newState = LoggingChat() and 0 or 1
+    LoggingChat(newState)
+    UpdateLogStatus()
+end)
+
+-- 5. EVENT LISTENERS FOR AUTO-ENABLE
+LogFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+LogFrame:RegisterEvent("PLAYER_LOGIN")
+
+LogFrame:SetScript("OnEvent", function(self, event)
+    if event == "PLAYER_LOGIN" then
+        -- ElvUI Skinning Check
+        if IsAddOnLoaded("ElvUI") then
+            local E = unpack(ElvUI)
+            if E then
+                LogFrame:SetBackdrop(nil)
+                LogFrame:SetTemplate("Transparent")
+            end
+        end
+        UpdateLogStatus()
+        
+    elseif event == "PLAYER_ENTERING_WORLD" then
+        -- Auto-enable if zoning into a Battleground
+        if UnitInBattleground("player") then
+            LoggingCombat(1)
+            LoggingChat(1)
+        end
+        UpdateLogStatus()
+    end
+end)
